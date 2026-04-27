@@ -1,19 +1,19 @@
 # Serendia Landing Page — Technical Decisions
 
-## 1. Framework: Next.js 16 (App Router)
+## 1. Framework: Next.js 16 (App Router + Static Export)
 
 ### Decision
 
-Next.js 16 with the App Router was chosen as the application framework.
+Next.js 16 with the App Router was chosen as the application framework. The production deployment target is Hostinger shared hosting, so the application is configured for static export with `output: 'export'`.
 
 ### Rationale
 
-- **Server-Side Rendering (SSR) by default**: All pages are server-rendered, which is critical for SEO and fast initial page loads — essential for a landing page targeting search engines.
+- **Static HTML export**: All public pages are pre-rendered at build time, which fits Hostinger shared hosting and keeps page loads fast.
 - **App Router**: The newer routing paradigm provides React Server Components (RSC), nested layouts, and streaming, enabling better performance and code organization.
 - **TypeScript**: First-class TypeScript support reduces bugs and improves developer experience.
-- **Image Optimization**: Built-in `next/image` component with automatic WebP/AVIF conversion and lazy loading.
-- **Static Generation**: Pages with no dynamic data can be statically generated at build time for optimal performance.
+- **Static Generation**: Locale pages and service pages are generated at build time through `generateStaticParams`.
 - **Turbopack**: Development server uses Turbopack for faster HMR.
+- **Hostinger compatibility**: The build command copies the generated `out/` folder into `travel/`, which is the installation path configured in Hostinger hPanel.
 
 ### Alternatives Considered
 
@@ -36,8 +36,8 @@ Material UI (MUI) 7 is the component library, using `@mui/material` and `@mui/ic
 - **Theming system**: MUI's `createTheme` allows centralized brand token management (colors, typography, spacing) ensuring consistency.
 - **Responsive design**: Built-in responsive breakpoints via the `sx` prop and Grid component.
 - **Accessibility**: MUI components follow WAI-ARIA standards by default.
-- **Emotion-based styling**: CSS-in-JS approach aligns with React component model and supports SSR.
-- **Next.js integration**: `@mui/material-nextjs` package handles SSR emotion cache hydration.
+- **Emotion-based styling**: CSS-in-JS approach aligns with React component model and supports pre-rendered static output.
+- **Next.js integration**: `@mui/material-nextjs` package handles style injection for App Router rendering.
 
 ### Styling Strategy
 
@@ -56,9 +56,9 @@ Material UI (MUI) 7 is the component library, using `@mui/material` and `@mui/ic
 
 - **App Router native**: Designed specifically for Next.js App Router with full RSC support.
 - **Local translations**: All translations stored in `src/messages/{locale}.json` — no external translation management service required.
-- **SSR-compatible**: Translations are resolved on the server, ensuring SEO crawlers see localized content.
+- **Static-export compatible**: Translations are resolved at build time, ensuring SEO crawlers see localized HTML content.
 - **Type-safe**: Provides TypeScript integration for translation keys.
-- **Middleware-based routing**: Automatic locale detection and URL prefix routing (`/es/`, `/en/`, `/pt/`).
+- **URL prefix routing**: All content is exposed under explicit locale prefixes (`/es/`, `/en/`, `/pt/`).
 
 ### Supported Locales
 
@@ -70,15 +70,15 @@ Material UI (MUI) 7 is the component library, using `@mui/material` and `@mui/ic
 
 ### Default Locale
 
-Spanish (`es`) is the default locale. When no locale prefix is present in the URL, the middleware redirects to `/es/`.
+Spanish (`es`) is the default locale. Because static hosting cannot execute Next.js middleware, the root `public/index.html` redirects users to the saved locale from `localStorage` or falls back to `/es/`.
 
 ### Language Persistence
 
 Language preference is persisted using `localStorage`:
 
 1. When a user selects a language via the floating language switcher, the selection is saved to `localStorage` under the key `NEXT_LOCALE`.
-2. Additionally, a cookie `NEXT_LOCALE` is set so that the server-side middleware can read it on subsequent requests.
-3. On return visits, the middleware reads the cookie and redirects to the saved locale.
+2. Additionally, a cookie `NEXT_LOCALE` is set for compatibility with future server-capable deployments.
+3. On root visits, `travel/index.html` reads `localStorage` and redirects to the saved locale when possible.
 
 ### Translation File Structure
 
@@ -114,9 +114,9 @@ A floating button fixed to the upper-right corner displays the current locale co
 
 ## 5. SEO Strategy
 
-### Server-Side Rendering
+### Static Rendering
 
-All pages use React Server Components and are server-rendered by default. This ensures search engine crawlers receive fully rendered HTML with all content and metadata.
+All pages are pre-rendered as static HTML during `npm run build`. This ensures search engine crawlers receive fully rendered HTML with all localized content and metadata while remaining compatible with Hostinger shared hosting.
 
 ### Metadata Management
 
@@ -133,7 +133,7 @@ Every page includes `<link rel="alternate" hreflang="xx" href="..." />` for all 
 ### Sitemap & Robots
 
 - `robots.txt`: Generated at build time, allows all crawlers.
-- `sitemap.xml`: Dynamically generated via `app/sitemap.ts`, includes all pages in all locales.
+- `sitemap.xml`: Generated at build time via `app/sitemap.ts`, includes all pages in all locales and points to `https://travel.serendia.tech`.
 
 ### Semantic HTML
 
@@ -191,12 +191,12 @@ Service definitions (slugs, icons, order) are stored in `src/data/services.ts` a
 
 ## 8. Performance Considerations
 
-- **React Server Components**: Minimize client-side JS bundle.
-- **next/image**: Automatic lazy loading, responsive sizing, modern format conversion.
+- **React Server Components**: Minimize client-side JS bundle while producing static HTML.
+- **Static image handling**: `images.unoptimized = true` is required because Hostinger shared hosting cannot run the Next.js image optimizer.
 - **Code splitting**: Next.js App Router automatically code-splits by route.
 - **Font optimization**: `next/font` for optimal font loading without layout shift.
 - **No heavy animation libraries**: Simple CSS transitions only.
-- **Emotion SSR**: `@mui/material-nextjs` ensures styles are injected server-side to prevent FOUC (Flash of Unstyled Content).
+- **Emotion style extraction**: `@mui/material-nextjs` ensures styles are included in the pre-rendered output to prevent FOUC (Flash of Unstyled Content).
 
 ## 9. Contact Form
 
@@ -218,9 +218,22 @@ Currently, the form displays a success message on submit without backend integra
 
 ## 10. Deployment Considerations
 
-The application is designed for deployment on:
-- **Vercel**: Native Next.js support, automatic SSR, edge functions.
-- **Docker**: Can be containerized using the standard Next.js Dockerfile.
-- **Node.js server**: Standard `next build && next start` for any Node.js hosting.
+The primary deployment target is **Hostinger shared hosting** using Git deployment and the `travel/` installation path.
+
+The production build command is:
+
+```bash
+npm run build
+```
+
+This performs a Next.js static export into `out/` and then copies it into `travel/`, which must be committed and pushed to the Git repository for Hostinger to serve it.
+
+For full deployment instructions and limitations, see:
+
+```text
+spec/hostinger-deployment.md
+```
+
+The application can still be adapted for Node.js-capable platforms such as Vercel, Docker, or Hostinger VPS, but the current repository is optimized for static deployment.
 
 No environment variables are required for the base landing page. Future integrations (contact form backend, analytics) may require additional configuration.
