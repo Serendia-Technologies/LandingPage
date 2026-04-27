@@ -10,6 +10,102 @@ https://travel.serendia.tech
 
 Hostinger is configured to pull the GitHub repository and serve the folder named `travel`. Because Hostinger shared hosting does not run a Node.js server, the application must be exported as static HTML, CSS, and JavaScript before deployment.
 
+## TODO: Resolve Nested `travel/travel/` Directory Issue
+
+> **Status:** Pending. The site only works through nested URLs like `https://travel.serendia.tech/travel/es/` instead of the expected `https://travel.serendia.tech/es/`.
+
+### Problem
+
+Hostinger clones the entire Git repository into the configured installation path (`public_html/travel/`). The subdomain `travel.serendia.tech` points to that folder, but the contents of the cloned repository are **source code** (`package.json`, `src/`, `next.config.ts`, etc.), not a static site. The generated static site lives **one level deeper**, inside the committed `travel/` subfolder.
+
+The resulting filesystem layout on Hostinger looks like this:
+
+```text
+public_html/travel/                <- subdomain document root → 403
+├── package.json
+├── src/
+├── next.config.ts
+└── travel/                        <- actual static site → works
+    ├── index.html
+    ├── es/index.html
+    └── en/index.html
+```
+
+Observed behavior on the live subdomain:
+
+| URL | Result |
+|-----|--------|
+| `https://travel.serendia.tech/` | 403 Forbidden (no `index.html` at the document root) |
+| `https://travel.serendia.tech/es/` | 404 (looks for `public_html/travel/es/index.html`, which does not exist) |
+| `https://travel.serendia.tech/travel/` | Works — redirects to `/es/` via `public/index.html` |
+| `https://travel.serendia.tech/travel/es/` | Works |
+| `https://travel.serendia.tech/travel/en/` | Works |
+
+This confirms the document root of the subdomain is pointing to the cloned repository root rather than to the generated static output inside it.
+
+### Resolution Options
+
+The following options are listed from cleanest to most pragmatic. Pick one and update this section once implemented.
+
+#### Option 1 (Recommended): Change the Subdomain Document Root in hPanel
+
+In Hostinger hPanel, edit the `travel.serendia.tech` subdomain configuration and change its **Document Root** from the repository root to the nested static folder:
+
+```text
+public_html/travel/travel
+```
+
+- **Pros:** Zero code changes. No rewrite layer. Cleanest possible setup.
+- **Cons:** Requires that the Hostinger plan allows editing a subdomain's document root (some shared plans restrict this).
+
+#### Option 2: Use a Dedicated `deploy` Branch
+
+Create a `deploy` Git branch that contains **only** the contents of `travel/` at its root (no `src/`, no `package.json`, no source files). Configure the local build script (or a CI job) to:
+
+1. Run `next build`.
+2. Push the contents of `out/` to the `deploy` branch root.
+
+Then in Hostinger:
+
+- **Branch:** change from `main` to `deploy`.
+- **Installation path:** keep as `travel`.
+
+Hostinger will clone a branch that already has `index.html` at the root, so the subdomain works without any nesting.
+
+- **Pros:** Clean separation between source and deployed artifact. Standard pattern (similar to `gh-pages`).
+- **Cons:** Requires automating the build-to-`deploy` flow (a local script or a GitHub Action).
+
+#### Option 3: `.htaccess` Rewrite at the Repository Root
+
+Hostinger shared hosting runs Apache, so a `.htaccess` file committed to the repository root can transparently rewrite all incoming requests into `/travel/`:
+
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/travel/
+RewriteCond %{REQUEST_URI} !^/\.htaccess$
+RewriteRule ^(.*)$ /travel/$1 [L]
+```
+
+With this in place:
+
+- `https://travel.serendia.tech/` is served from `travel/index.html`.
+- `https://travel.serendia.tech/es/` is served from `travel/es/index.html`.
+- The browser URL stays unchanged (internal rewrite, not redirect).
+
+- **Pros:** One file. No Hostinger or branch changes required.
+- **Cons:** Adds a hidden rewrite layer that future maintainers must remember.
+
+#### Option 4 (Not Recommended): Emit Static Output to the Repository Root
+
+Change the build script so that `out/` is copied to the repository root rather than to `travel/`. This eliminates the nesting at the cost of mixing generated HTML/CSS/JS with the source tree, polluting the repo root and complicating `.gitignore` rules. Listed for completeness only.
+
+### Action Items
+
+- [ ] Decide which option to apply (Option 1 preferred if hPanel allows it).
+- [ ] If Option 2 is chosen, add a `deploy` script and document the new flow in this file and in `README.md`.
+- [ ] If Option 3 is chosen, commit the `.htaccess` file and note its purpose in this section.
+- [ ] Once resolved, replace this TODO section with a short description of the final solution.
+
 ## Current Static Export Setup
 
 The project uses Next.js static export:
