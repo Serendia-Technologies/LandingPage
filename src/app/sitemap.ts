@@ -2,7 +2,9 @@ import type { MetadataRoute } from 'next';
 import { locales } from '@/i18n/config';
 import { serviceSlugs } from '@/data/services';
 
-const BASE_URL = 'https://serendia.com';
+const BASE_URL = 'https://travel.serendia.tech';
+
+export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const pages = ['', '/about', '/contact'];

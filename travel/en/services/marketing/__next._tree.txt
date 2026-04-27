@@ -1,0 +1,5 @@
+:HL["/_next/static/chunks/0w3pl39hr48c0.css","style"]
+:HL["/_next/static/chunks/0_1yjxmv8jxhl.css","style"]
+:HL["/_next/static/media/ce62453a442c7f35-s.p.0333ktddfbsxy.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"locale","param":{"type":"d","key":"en","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"services","param":null,"prefetchHints":0,"slots":{"children":{"name":"slug","param":{"type":"d","key":"marketing","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}}}},"staleTime":300,"buildId":"v19k3XjPttuoopdOiYAhq"}

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && rm -rf travel && cp -R out travel",
     "start": "next start",
     "lint": "eslint"
   },
